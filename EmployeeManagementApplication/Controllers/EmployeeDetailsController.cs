@@ -56,9 +56,6 @@ namespace EmployeeManagementApplication.Controllers
 
         public IActionResult Create()
         {
-            ViewData["DepartmentId"] = new SelectList(_unitOfWork.DepartmentRepository.GetAll(), "DepartmentId", "DepartmentName");
-            ViewData["Projects"] = new SelectList(_unitOfWork.ProjectRepository.GetAll(), "ProjectId", "ProjectName");
-            ViewData["Skills"] = new SelectList(_unitOfWork.SkillRepository.GetAll(), "SkillId", "SkillName");
             return View();
         }
 
@@ -67,18 +64,39 @@ namespace EmployeeManagementApplication.Controllers
         /// </summary>
         /// <param name="employeeDetails"></param>
         /// <returns></returns>
-        
+
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Create([Bind("EmployeeId,Name,DepartmentId,Details,Experience")] EmployeeDetails employeeDetails)
+        public IActionResult Create([Bind("EmployeeId,Name,DepartmentId,Details,Experience,SkillIds,NewSkill")] EmployeeDetails employeeDetails, string? newSkill)
         {
             if (ModelState.IsValid)
             {
+                // Add the new skill if provided and not already in the database
+                if (!string.IsNullOrWhiteSpace(newSkill))
+                {
+                    var existingSkill = _unitOfWork.SkillRepository.GetAll().FirstOrDefault(s => s.SkillName.Equals(newSkill, StringComparison.OrdinalIgnoreCase));
+                    if (existingSkill == null)
+                    {
+                        // Add the new skill to the database
+                        var skill = new Skills
+                        {
+                            SkillName = newSkill
+                        };
+                        _unitOfWork.SkillRepository.Add(skill);
+                        _unitOfWork.Save();
+                    }
+                }
+
                 _unitOfWork.EmployeeRepository.Add(employeeDetails);
                 _unitOfWork.Save();
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["DepartmentId"] = new SelectList(_unitOfWork.DepartmentRepository.GetAll(), "DepartmentId", "DepartmentName", employeeDetails.DepartmentId);           
+
+            // Populate dropdowns
+            ViewData["DepartmentId"] = new SelectList(_unitOfWork.DepartmentRepository.GetAll(), "DepartmentId", "DepartmentName", employeeDetails.DepartmentId);
+            ViewData["Projects"] = new SelectList(_unitOfWork.ProjectRepository.GetAll(), "ProjectId", "ProjectName");
+            ViewData["Skills"] = new SelectList(_unitOfWork.SkillRepository.GetAll(), "SkillId", "SkillName");
+
             return View(employeeDetails);
         }
 
